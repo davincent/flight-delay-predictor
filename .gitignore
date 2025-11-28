@@ -1,0 +1,144 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.ipynb_checkpoints/
+
+# Data files (TOO LARGE FOR GIT!)
+data/raw/*.csv
+data/raw/*.parquet
+data/processed/*.csv
+*.h5
+*.hdf5
+
+# Model files (TOO LARGE FOR GIT!)
+data/models/*.pth
+data/models/*.onnx
+data/models/*.pkl
+*.onnx
+*.pth
+
+# Keep directory structure with .gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/models/.gitkeep
+
+# Logs
+*.log
+logs/
+*.out
+
+# Environment variables
+.env
+*.env
+!.env.example
+
+# IDEs
+.vscode/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# PyTorch
+*.pt
+
+# ONNX
+*.onnx
+
+# Pickle files (encoders, scalers - you might want to commit these)
+# Uncomment if you want to version control your encoders:
+# !data/models/label_encoders.pkl
+# !data/models/feature_scaler.pkl
+# !data/models/feature_info.pkl
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.png
+*.jpg
+*.jpeg
+!docs/*.png  # Keep documentation images
+
+# Training outputs
+runs/
+checkpoints/
+wandb/
+
+# C# / .NET
+bin/
+obj/
+*.cache
+*.dll
+*.exe
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+[Bb]in
+[Dd]ebug*/
+*.lib
+*.sbr
+obj/
+[Rr]elease*/
+_ReSharper*/
+[Tt]est[Rr]esult*
+.vs/
