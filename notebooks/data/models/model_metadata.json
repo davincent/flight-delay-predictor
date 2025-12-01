@@ -1,0 +1,19 @@
+{
+  "model_version": "1.0",
+  "trained_date": "2025-12-01T12:29:15.671579",
+  "input_features": 31,
+  "architecture": {
+    "input_size": 31,
+    "hidden_layers": [
+      128,
+      64,
+      32
+    ],
+    "output_size": 1
+  },
+  "training_samples": 4189659,
+  "validation_samples": 1396553,
+  "test_samples": 1396554,
+  "best_val_loss": 1.3010385190286944,
+  "epochs_trained": 14
+}
