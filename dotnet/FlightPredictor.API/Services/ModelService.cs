@@ -28,7 +28,7 @@ namespace FlightPredictor.API.Services
             
             // Create inference session
             // SessionOptions allows GPU configuration (we'll use CPU for now)
-            var sessionOptions = new SessionOptions();
+            var sessionOptions = new Microsoft.ML.OnnxRuntime.SessionOptions();
             _session = new InferenceSession(modelPath, sessionOptions);
             
             _logger.LogInformation("ONNX model loaded successfully from {ModelPath}", modelPath);
