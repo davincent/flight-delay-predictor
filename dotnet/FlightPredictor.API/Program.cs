@@ -6,8 +6,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // Register ModelService as a Singleton
-// Singleton = one instance for the entire application lifetime
-// This is important because loading the ONNX model is expensive
 builder.Services.AddSingleton<ModelService>();
 
 // Add Swagger for API documentation
