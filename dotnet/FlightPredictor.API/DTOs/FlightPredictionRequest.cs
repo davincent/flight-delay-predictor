@@ -17,8 +17,5 @@ namespace FlightPredictor.API.DTOs
         public string OriginAirport { get; set; } = string.Empty;
         public string DestinationAirport { get; set; } = string.Empty;
         public string Carrier { get; set; } = string.Empty;
-        
-        // Optional: Distance (if you have this in your features)
-        public float? Distance { get; set; }
     }
 }
