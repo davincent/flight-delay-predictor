@@ -52,8 +52,8 @@ def main():
     )
     
     # Calculate date range
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=collection_config.lookback_days)
+    end_date = datetime.now() - timedelta(days=4)
+    start_date = datetime.now() - timedelta(days=7)
     
     print(f"Collection parameters:")
     print(f"  Airports: {', '.join(collection_config.airports)}")

@@ -1,7 +1,7 @@
 # src/collectors/data_pipeline.py
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Dict
 from pathlib import Path
 
 from src.collectors.flightaware_client import FlightAwareClient

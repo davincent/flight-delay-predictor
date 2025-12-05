@@ -115,10 +115,23 @@ class FlightAwareClient:
         while True:
             data = self._make_request(endpoint, params)
             
-            if not data or 'flights' not in data:
-                break
             
-            flights = data['flights']
+            if not data:
+                break
+    
+            # Different endpoints use different keys
+            if flight_type == "departures":
+                flights_key = "departures"
+            elif flight_type == "arrivals":
+                flights_key = "arrivals"
+            else:
+                flights_key = "flights"  # fallback
+    
+            if flights_key not in data:
+                print(f"  Expected key '{flights_key}' not found in response")
+                break
+    
+            flights = data[flights_key]
             all_flights.extend(flights)
             
             print(f"  Retrieved {len(flights)} flights (total: {len(all_flights)})")
