@@ -1,9 +1,9 @@
 {
-  "model_version": "1.0",
-  "trained_date": "2025-12-01T12:29:15.671579",
-  "input_features": 31,
+  "model_version": "2.0",
+  "trained_date": "2025-12-09T13:26:48.679872",
+  "input_features": 45,
   "architecture": {
-    "input_size": 31,
+    "input_size": 45,
     "hidden_layers": [
       128,
       64,
@@ -11,9 +11,9 @@
     ],
     "output_size": 1
   },
-  "training_samples": 4189659,
-  "validation_samples": 1396553,
-  "test_samples": 1396554,
-  "best_val_loss": 1.3010385190286944,
-  "epochs_trained": 14
+  "training_samples": 3623648,
+  "validation_samples": 1207883,
+  "test_samples": 1207883,
+  "best_val_loss": 0.8905915735889289,
+  "epochs_trained": 20
 }
