@@ -26,6 +26,7 @@ wheels/
 # Data files (TOO LARGE FOR GIT!)
 data/raw/*.csv
 data/raw/*.parquet
+data/raw/weather_cache/*.csv
 data/processed/*.csv
 *.h5
 *.hdf5
