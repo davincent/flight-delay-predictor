@@ -32,11 +32,14 @@ data/processed/*.csv
 data/processed/weather_merge_checkpoints/*.csv
 *.h5
 *.hdf5
+dotnet/FlightPredictor.API/Data/*.csv
+dotnet/FlightPredictor.API/Data/*.json
 
 # Model files (TOO LARGE FOR GIT!)
 data/models/*.pth
 data/models/*.onnx
 data/models/*.pkl
+data/models/*.json
 *.onnx
 *.pth
 

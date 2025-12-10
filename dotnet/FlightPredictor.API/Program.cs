@@ -5,7 +5,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the dependency injection container
 builder.Services.AddControllers();
 
-// Register ModelService as a Singleton
+// Register ML services
+builder.Services.AddSingleton<AirportService>();
+builder.Services.AddSingleton<HistoricalStatsService>();
+builder.Services.AddSingleton<FeatureEngineeringService>();
+builder.Services.AddSingleton<WeatherService>();
 builder.Services.AddSingleton<ModelService>();
 
 // Add Swagger for API documentation

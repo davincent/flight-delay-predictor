@@ -34,7 +34,7 @@ namespace FlightPredictor.API.Controllers
         [ProducesResponseType(typeof(FlightPredictionResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<FlightPredictionResponse> Predict([FromBody] FlightPredictionRequest request)
+        public async Task<ActionResult<FlightPredictionResponse>> Predict([FromBody] FlightPredictionRequest request)
         {
             try
             {
@@ -57,7 +57,7 @@ namespace FlightPredictor.API.Controllers
                 }
 
                 // Make prediction
-                var result = _modelService.Predict(request);
+                var result = await _modelService.PredictAsync(request);
 
                 _logger.LogInformation(
                     "Prediction complete: {IsDelayed} (probability: {Probability:F2})",
@@ -93,15 +93,15 @@ namespace FlightPredictor.API.Controllers
         /// Get model information.
         /// </summary>
         [HttpGet("model-info")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
         public ActionResult ModelInfo()
         {
-            return Ok(new
+        return Ok(new
             {
-                modelVersion = "1.0",
-                features = 31,
-                architecture = "3-layer neural network",
-                framework = "PyTorch → ONNX"
+                modelVersion = "2.0",
+                features = 45,
+                architecture = "Optuna-optimized neural network",
+                framework = "PyTorch → ONNX",
+                weatherSource = "Seasonal defaults (NOAA integration pending)"
             });
         }
     }

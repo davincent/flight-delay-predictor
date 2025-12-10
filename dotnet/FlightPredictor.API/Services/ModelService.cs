@@ -5,83 +5,232 @@ using FlightPredictor.API.DTOs;
 namespace FlightPredictor.API.Services
 {
     /// <summary>
-    /// Service responsible for loading the ONNX model and making predictions.
-    /// This is registered as a Singleton, meaning one instance serves all requests.
+    /// Main service that orchestrates all other services to make flight delay predictions.
+    /// This is the "conductor" - it doesn't do the work itself, but coordinates everything.
     /// </summary>
-    public class ModelService
+    public class ModelService : IDisposable
     {
         private readonly InferenceSession _session;
+        private readonly AirportService _airportService;
+        private readonly HistoricalStatsService _historicalStatsService;
+        private readonly WeatherService _weatherService;
+        private readonly FeatureEngineeringService _featureEngineeringService;
         private readonly ILogger<ModelService> _logger;
 
-        // Constructor - runs once when the service is created
-        public ModelService(ILogger<ModelService> logger)
+        public ModelService(
+            AirportService airportService,
+            HistoricalStatsService historicalStatsService,
+            WeatherService weatherService,
+            FeatureEngineeringService featureEngineeringService,
+            ILogger<ModelService> logger)
         {
+            _airportService = airportService;
+            _historicalStatsService = historicalStatsService;
+            _weatherService = weatherService;
+            _featureEngineeringService = featureEngineeringService;
             _logger = logger;
-            
-            // Load the ONNX model from disk
+
+            // Load ONNX model
             var modelPath = Path.Combine(AppContext.BaseDirectory, "Models", "flight_delay_model.onnx");
             
             if (!File.Exists(modelPath))
             {
                 throw new FileNotFoundException($"ONNX model not found at: {modelPath}");
             }
-            
-            // Create inference session
-            // SessionOptions allows GPU configuration (we'll use CPU for now)
+
             var sessionOptions = new Microsoft.ML.OnnxRuntime.SessionOptions();
             _session = new InferenceSession(modelPath, sessionOptions);
             
-            _logger.LogInformation("ONNX model loaded successfully from {ModelPath}", modelPath);
+            _logger.LogInformation("ModelService initialized with ONNX model from {ModelPath}", modelPath);
         }
 
         /// <summary>
-        /// Make a prediction for a single flight.
+        /// Make a flight delay prediction.
+        /// This is the main orchestration method that coordinates all services.
         /// </summary>
-        public FlightPredictionResponse Predict(FlightPredictionRequest request)
+        public async Task<FlightPredictionResponse> PredictAsync(FlightPredictionRequest request)
         {
             try
             {
-                // Step 1: Preprocess the input into the 31 features
-                var features = PreprocessInput(request);
+                _logger.LogInformation(
+                    "Processing prediction for {Carrier} flight from {Origin} to {Dest} on {Month}/{Day} at {Hour}:{Minute:D2}",
+                    request.Carrier, request.OriginAirport, request.DestinationAirport,
+                    request.Month, request.DayOfMonth, request.Hour, request.Minute
+                );
+
+                // Step 1: Get airport information
+                var originAirport = _airportService.GetAirport(request.OriginAirport);
+                var destAirport = _airportService.GetAirport(request.DestinationAirport);
+
+                if (originAirport == null)
+                {
+                    return new FlightPredictionResponse
+                    {
+                        IsDelayed = false,
+                        Probability = 0,
+                        Confidence = 0,
+                        Message = $"Unknown origin airport: {request.OriginAirport}",
+                        PredictedAt = DateTime.UtcNow
+                    };
+                }
+
+                if (destAirport == null)
+                {
+                    return new FlightPredictionResponse
+                    {
+                        IsDelayed = false,
+                        Probability = 0,
+                        Confidence = 0,
+                        Message = $"Unknown destination airport: {request.DestinationAirport}",
+                        PredictedAt = DateTime.UtcNow
+                    };
+                }
+
+                // Step 2: Calculate geographic features
+                var distance = _airportService.CalculateDistance(
+                    request.OriginAirport, 
+                    request.DestinationAirport
+                );
+
+                // Step 3: Estimate flight duration and arrival hour
+                // Average commercial jet speed: ~500 mph cruising + 30 min for taxi/climb/descent
+                var estimatedFlightHours = (distance / 500.0) + 0.5; // hours
+                var scheduledElapsedMinutes = (int)(estimatedFlightHours * 60);
                 
-                // Step 2: Create input tensor
-                // Tensor is a multi-dimensional array - shape is [1, 31]
-                // 1 = batch size (single prediction), 31 = number of features
-                var inputTensor = new DenseTensor<float>(features, new[] { 1, 31 });
-                
-                // Step 3: Create named inputs (must match ONNX export names)
+                // Calculate arrival hour
+                var departureMinutes = request.Hour * 60 + request.Minute;
+                var arrivalMinutes = departureMinutes + scheduledElapsedMinutes;
+                var arrivalHour = (arrivalMinutes / 60) % 24; // Wrap around 24 hours
+
+                _logger.LogDebug(
+                    "Flight details: Distance={Distance:F1}mi, EstDuration={Duration:F1}hrs, ArrHour={ArrHour}",
+                    distance, estimatedFlightHours, arrivalHour
+                );
+
+                // Step 4: Get historical statistics
+                var originDelayRate = _historicalStatsService.GetOriginDelayRate(request.OriginAirport);
+                var destDelayRate = _historicalStatsService.GetDestDelayRate(request.DestinationAirport);
+                var carrierDelayRate = _historicalStatsService.GetCarrierDelayRate(request.Carrier);
+                var routeDelayRate = _historicalStatsService.GetRouteDelayRate(
+                    request.OriginAirport, 
+                    request.DestinationAirport
+                );
+                var originDailyFlights = _historicalStatsService.GetOriginDailyFlights(request.OriginAirport);
+                var destDailyFlights = _historicalStatsService.GetDestDailyFlights(request.DestinationAirport);
+
+                // Step 5: Get weather data for both airports
+                // Use the provided flight date, or default to today
+                var flightDateTime = request.FlightDate ?? DateTime.Now;
+                var departureDateTime = new DateTime(
+                    flightDateTime.Year, 
+                    flightDateTime.Month, 
+                    flightDateTime.Day,
+                    request.Hour, 
+                    request.Minute, 
+                    0
+                );
+
+                var originWeather = await _weatherService.GetWeatherAsync(
+                    request.OriginAirport, 
+                    departureDateTime
+                );
+
+                // For arrival weather, use estimated arrival time
+                var arrivalDateTime = departureDateTime.AddMinutes(scheduledElapsedMinutes);
+                var destWeather = await _weatherService.GetWeatherAsync(
+                    request.DestinationAirport, 
+                    arrivalDateTime
+                );
+
+                // Step 6: Build RawFlightData object with all gathered information
+                var rawData = new FeatureEngineeringService.RawFlightData
+                {
+                    // Temporal
+                    Month = request.Month,
+                    DayOfMonth = request.DayOfMonth,
+                    DayOfWeek = request.DayOfWeek,
+                    DepHour = request.Hour,
+                    DepMinute = request.Minute,
+                    ArrHour = arrivalHour,
+
+                    // Geographic
+                    OriginAirport = request.OriginAirport,
+                    DestinationAirport = request.DestinationAirport,
+                    Distance = distance,
+
+                    // Airline
+                    Carrier = request.Carrier,
+
+                    // Historical
+                    OriginDelayRate = originDelayRate,
+                    DestDelayRate = destDelayRate,
+                    CarrierDelayRate = carrierDelayRate,
+                    RouteDelayRate = routeDelayRate,
+                    OriginDailyFlights = originDailyFlights,
+                    DestDailyFlights = destDailyFlights,
+
+                    // Flight characteristics
+                    ScheduledElapsedTime = scheduledElapsedMinutes,
+
+                    // Departure weather
+                    DepTemp = originWeather.Temperature,
+                    DepDewpoint = originWeather.Dewpoint,
+                    DepPressure = originWeather.Pressure,
+                    DepWindDir = originWeather.WindDirection,
+                    DepWindSpeed = originWeather.WindSpeed,
+                    DepSkyCoverage = originWeather.SkyCoverage,
+                    DepPrecip = originWeather.Precipitation,
+
+                    // Arrival weather
+                    ArrTemp = destWeather.Temperature,
+                    ArrDewpoint = destWeather.Dewpoint,
+                    ArrPressure = destWeather.Pressure,
+                    ArrWindDir = destWeather.WindDirection,
+                    ArrWindSpeed = destWeather.WindSpeed,
+                    ArrSkyCoverage = destWeather.SkyCoverage,
+                    ArrPrecip = destWeather.Precipitation
+                };
+
+                // Step 7: Transform into 45 engineered and scaled features
+                var features = _featureEngineeringService.TransformFeatures(rawData);
+
+                _logger.LogDebug("Features transformed: {Count} features ready for model", features.Length);
+
+                // Step 8: Create input tensor for ONNX
+                // Shape is [1, 45] - batch size of 1, 45 features
+                var inputTensor = new DenseTensor<float>(features, new[] { 1, 45 });
+
+                // Step 9: Run inference
                 var inputs = new List<NamedOnnxValue>
                 {
                     NamedOnnxValue.CreateFromTensor("input", inputTensor)
                 };
-                
-                // Step 4: Run inference
+
                 using var results = _session.Run(inputs);
                 
-                // Step 5: Extract output (it's a logit, needs sigmoid)
+                // Step 10: Extract output
+                // Model outputs a logit (raw score), need to apply sigmoid
                 var output = results.First().AsEnumerable<float>().First();
                 
                 // Apply sigmoid: probability = 1 / (1 + e^(-logit))
                 var probability = 1.0f / (1.0f + MathF.Exp(-output));
-                
-                // Step 6: Determine if delayed (threshold = 0.5)
+
+                // Step 11: Determine prediction and confidence
                 var isDelayed = probability > 0.5f;
-                
-                // Step 7: Calculate confidence
-                // Confidence is how far from 0.5 the probability is
-                // If prob = 0.9, confidence = |0.9 - 0.5| * 2 = 0.8
-                // If prob = 0.5, confidence = 0 (totally uncertain)
                 var confidence = MathF.Abs(probability - 0.5f) * 2.0f;
-                
-                // Step 8: Build response
+
+                _logger.LogInformation(
+                    "Prediction complete: IsDelayed={IsDelayed}, Probability={Probability:P1}, Confidence={Confidence:P1}",
+                    isDelayed, probability, confidence
+                );
+
+                // Step 12: Build and return response
                 return new FlightPredictionResponse
                 {
                     IsDelayed = isDelayed,
                     Probability = probability,
                     Confidence = confidence,
-                    Message = isDelayed 
-                        ? $"Flight is likely to be delayed ({probability:P1} probability)"
-                        : $"Flight is likely on-time ({(1-probability):P1} probability)",
+                    Message = BuildPredictionMessage(isDelayed, probability, confidence),
                     PredictedAt = DateTime.UtcNow
                 };
             }
@@ -93,64 +242,36 @@ namespace FlightPredictor.API.Services
         }
 
         /// <summary>
-        /// Convert the request into the 31 features the model expects.
-        /// THIS MUST MATCH YOUR PYTHON PREPROCESSING EXACTLY.
+        /// Build a human-readable message based on the prediction.
         /// </summary>
-        private float[] PreprocessInput(FlightPredictionRequest request)
+        private string BuildPredictionMessage(bool isDelayed, float probability, float confidence)
         {
-            // For now, we'll create a dummy array of 31 features
-            // You'll need to replace this with actual feature engineering
-            // that matches your Python code EXACTLY
-            
-            var features = new float[31];
-            
-            // Example mapping (you'll need to adjust based on your actual features):
-            // Feature 0: Day of week
-            features[0] = request.DayOfWeek;
-            
-            // Feature 1: Month
-            features[1] = request.Month;
-            
-            // Feature 2: Day of month
-            features[2] = request.DayOfMonth;
-            
-            // Feature 3: Hour
-            features[3] = request.Hour;
-            
-            // Feature 4: Minute
-            features[4] = request.Minute;
-            
-            // Feature 5-6: Hour cyclical encoding (sin and cos)
-            // Why? Hours are cyclical: 23 and 0 are close, but numerically far apart
-            // sin/cos encoding captures this circular relationship
-            var hourRadians = (request.Hour / 24.0f) * 2.0f * MathF.PI;
-            features[5] = MathF.Sin(hourRadians);
-            features[6] = MathF.Cos(hourRadians);
-            
-            // Feature 7-8: Day of week cyclical encoding
-            var dowRadians = (request.DayOfWeek / 7.0f) * 2.0f * MathF.PI;
-            features[7] = MathF.Sin(dowRadians);
-            features[8] = MathF.Cos(dowRadians);
-            
-            // Feature 9-10: Month cyclical encoding
-            var monthRadians = ((request.Month - 1) / 12.0f) * 2.0f * MathF.PI;
-            features[9] = MathF.Sin(monthRadians);
-            features[10] = MathF.Cos(monthRadians);
-            
-            // Features 11-30: Placeholder for airport/carrier encodings and other features
-            // TODO: Load label encoders and apply transformations
-            // For now, fill with zeros (this won't give accurate predictions)
-            for (int i = 11; i < 31; i++)
+            if (confidence < 0.3f)
             {
-                features[i] = 0.0f;
+                // Low confidence - be honest about uncertainty
+                return $"Uncertain prediction (low confidence). Delay probability: {probability:P1}";
             }
-            
-            _logger.LogDebug("Preprocessed features: [{Features}]", string.Join(", ", features.Take(10)));
-            
-            return features;
+
+            if (isDelayed)
+            {
+                return confidence switch
+                {
+                    >= 0.7f => $"Flight is highly likely to be delayed ({probability:P0} probability)",
+                    >= 0.5f => $"Flight is likely to be delayed ({probability:P0} probability)",
+                    _ => $"Flight may be delayed ({probability:P0} probability)"
+                };
+            }
+            else
+            {
+                return confidence switch
+                {
+                    >= 0.7f => $"Flight is highly likely to be on-time ({(1 - probability):P0} probability)",
+                    >= 0.5f => $"Flight is likely to be on-time ({(1 - probability):P0} probability)",
+                    _ => $"Flight may be on-time ({(1 - probability):P0} probability)"
+                };
+            }
         }
 
-        // Cleanup when service is disposed
         public void Dispose()
         {
             _session?.Dispose();
