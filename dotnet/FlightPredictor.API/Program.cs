@@ -24,23 +24,18 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-
-var app = builder.Build();
-
-// Add CORS
+// Add CORS - MOVED BEFORE builder.Build()
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:3000")  // Vite's default port
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 
-// ...
-
-app.UseCors("AllowReactApp");
+var app = builder.Build();  // ← Build happens AFTER all services are registered
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -49,7 +44,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowBlazor");
+app.UseCors("AllowReactApp");  // Use the policy we defined
 app.UseAuthorization();
 app.MapControllers();
 

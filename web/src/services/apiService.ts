@@ -1,266 +1,175 @@
-// API Client Service - Centralized HTTP communication with your ASP.NET Core backend
+/**
+ * API Service - Centralized service for all API calls to the C# backend
+ * Base URL points to your ASP.NET Core API
+ */
 
-import {
-  PredictionRequest,
-  PredictionResponse,
-  TrainingMetrics,
-  ModelArchitecture,
-  HistoricalData,
-  ApiError,
-} from '../types/api';
+const API_BASE_URL = 'http://localhost:5058/api';
 
 /**
- * Base configuration for API requests
- * In production, use environment variables: import.meta.env.VITE_API_BASE_URL
+ * Generic fetch wrapper with error handling
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-
-/**
- * Custom error class for API-related errors
- * This extends the built-in Error class to add statusCode property
- */
-class ApiClientError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public details?: string
-  ) {
-    super(message);
-    this.name = 'ApiClientError';
-  }
-}
-
-/**
- * Generic fetch wrapper that handles common HTTP concerns:
- * - JSON serialization/deserialization
- * - Error handling
- * - Headers configuration
- * - TypeScript generics for type safety
- */
-async function fetchWithErrorHandling<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
   try {
-    // Default headers for JSON communication
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    // Make the HTTP request
     const response = await fetch(url, {
       ...options,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
     });
 
-    // Check if the response is OK (status 200-299)
     if (!response.ok) {
-      // Try to parse error details from the response body
-      let errorMessage = `HTTP Error: ${response.status} ${response.statusText}`;
-      let errorDetails: string | undefined;
-
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-        errorDetails = errorData.details;
-      } catch {
-        // If response body isn't JSON, use status text
-      }
-
-      throw new ApiClientError(errorMessage, response.status, errorDetails);
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
-    // Parse and return JSON response
-    // The generic type T ensures the return type matches what the caller expects
-    const data = await response.json();
-    return data as T;
+    return await response.json();
   } catch (error) {
-    // Re-throw ApiClientError as-is
-    if (error instanceof ApiClientError) {
-      throw error;
-    }
-
-    // Handle network errors (no internet, server unreachable, etc.)
-    if (error instanceof TypeError) {
-      throw new ApiClientError(
-        'Network error: Unable to connect to the server. Please check your connection.',
-        0,
-        error.message
-      );
-    }
-
-    // Handle unexpected errors
-    throw new ApiClientError(
-      'An unexpected error occurred',
-      0,
-      error instanceof Error ? error.message : String(error)
-    );
+    console.error(`Failed to fetch ${endpoint}:`, error);
+    throw error;
   }
 }
 
-/**
- * API Service Object
- * This object groups all API endpoints into logical categories
- * Each method returns a Promise with properly typed data
- */
-export const apiService = {
+// ============================================================================
+// PREDICTION ENDPOINTS
+// ============================================================================
+
+export interface FlightPredictionRequest {
+  dayOfWeek: number;
+  month: number;
+  dayOfMonth: number;
+  hour: number;
+  minute: number;
+  originAirport: string;
+  destinationAirport: string;
+  carrier: string;
+  flightDate?: string;
+}
+
+export interface FlightPredictionResponse {
+  isDelayed: boolean;
+  probability: number;
+  confidence: number;
+  message: string;
+  predictedAt: string;
+}
+
+export const predictionApi = {
   /**
-   * Prediction Endpoints
+   * Make a flight delay prediction
    */
-  prediction: {
-    /**
-     * Make a flight delay prediction
-     * POST /api/prediction/predict
-     * 
-     * @param request - Flight details for prediction
-     * @returns Prediction result with confidence scores
-     * 
-     * Example usage:
-     * const result = await apiService.prediction.predict({
-     *   dayOfWeek: 2,
-     *   month: 6,
-     *   dayOfMonth: 15,
-     *   hour: 14,
-     *   minute: 30,
-     *   originAirport: 'LAX',
-     *   destinationAirport: 'JFK',
-     *   carrier: 'AA'
-     * });
-     */
-    predict: async (request: PredictionRequest): Promise<PredictionResponse> => {
-      return fetchWithErrorHandling<PredictionResponse>(
-        `${API_BASE_URL}/prediction/predict`,
-        {
-          method: 'POST',
-          body: JSON.stringify(request),
-        }
-      );
-    },
-
-    /**
-     * Get available airports
-     * GET /api/prediction/airports
-     */
-    getAirports: async (): Promise<string[]> => {
-      return fetchWithErrorHandling<string[]>(
-        `${API_BASE_URL}/prediction/airports`
-      );
-    },
-
-    /**
-     * Get available carriers
-     * GET /api/prediction/carriers
-     */
-    getCarriers: async (): Promise<string[]> => {
-      return fetchWithErrorHandling<string[]>(
-        `${API_BASE_URL}/prediction/carriers`
-      );
-    },
+  predict: async (request: FlightPredictionRequest): Promise<FlightPredictionResponse> => {
+    return fetchApi<FlightPredictionResponse>('/prediction/predict', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   },
 
   /**
-   * Training Metrics Endpoints
+   * Check prediction service health
    */
-  metrics: {
-    /**
-     * Get current model training metrics
-     * GET /api/metrics
-     */
-    getMetrics: async (): Promise<TrainingMetrics> => {
-      return fetchWithErrorHandling<TrainingMetrics>(
-        `${API_BASE_URL}/metrics`
-      );
-    },
-
-    /**
-     * Get training history (if your API supports it)
-     * GET /api/metrics/history
-     */
-    getHistory: async (): Promise<TrainingMetrics[]> => {
-      return fetchWithErrorHandling<TrainingMetrics[]>(
-        `${API_BASE_URL}/metrics/history`
-      );
-    },
+  health: async () => {
+    return fetchApi('/prediction/health');
   },
 
   /**
-   * Model Architecture Endpoints
+   * Get model information
    */
-  model: {
-    /**
-     * Get model architecture details
-     * GET /api/model/architecture
-     */
-    getArchitecture: async (): Promise<ModelArchitecture> => {
-      return fetchWithErrorHandling<ModelArchitecture>(
-        `${API_BASE_URL}/model/architecture`
-      );
-    },
-  },
-
-  /**
-   * Training Data Endpoints
-   */
-  data: {
-    /**
-     * Get paginated training data
-     * GET /api/data?page=1&pageSize=15&search=LAX
-     * 
-     * @param page - Page number (1-indexed)
-     * @param pageSize - Number of records per page
-     * @param search - Optional search term
-     */
-    getTrainingData: async (
-      page: number = 1,
-      pageSize: number = 15,
-      search?: string
-    ): Promise<{ data: HistoricalData[]; total: number }> => {
-      // Build query string with URLSearchParams
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-      });
-
-      if (search) {
-        params.append('search', search);
-      }
-
-      return fetchWithErrorHandling<{ data: HistoricalData[]; total: number }>(
-        `${API_BASE_URL}/data?${params.toString()}`
-      );
-    },
-
-    /**
-     * Get dataset statistics
-     * GET /api/data/stats
-     */
-    getStats: async (): Promise<{
-      totalRecords: number;
-      delayedCount: number;
-      onTimeCount: number;
-    }> => {
-      return fetchWithErrorHandling(
-        `${API_BASE_URL}/data/stats`
-      );
-    },
-  },
-
-  /**
-   * Health Check Endpoint
-   */
-  health: {
-    /**
-     * Check if the API is reachable
-     * GET /api/health
-     */
-    check: async (): Promise<{ status: string; timestamp: string }> => {
-      return fetchWithErrorHandling(
-        `${API_BASE_URL}/health`
-      );
-    },
+  modelInfo: async () => {
+    return fetchApi('/prediction/model-info');
   },
 };
 
-// Export the error class for use in components
-export { ApiClientError };
+// ============================================================================
+// METRICS ENDPOINTS
+// ============================================================================
+
+export interface TrainingHistory {
+  train_loss: number[];
+  val_loss: number[];
+  train_f1: number[];
+  val_f1: number[];
+  epochs: number;
+  [key: string]: any; // Allow for additional fields
+}
+
+export interface ModelMetadata {
+  model_version: string;
+  trained_date: string;
+  input_features: number;
+  architecture: {
+    input_size: number;
+    hidden_layers: number[];
+    output_size: number;
+  };
+  training_samples: number;
+  validation_samples: number;
+  test_samples: number;
+  best_val_loss: number;
+  epochs_trained: number;
+  [key: string]: any;
+}
+
+export interface DatasetStats {
+  overall_delay_rate: number;
+  total_flights: number;
+  origin_stats: Record<string, any>;
+  dest_stats: Record<string, any>;
+  carrier_stats: Record<string, any>;
+  [key: string]: any;
+}
+
+export interface FeatureInfo {
+  features: string[];
+  count: number;
+  [key: string]: any;
+}
+
+export const metricsApi = {
+  /**
+   * Get training history (loss curves, metrics over epochs)
+   */
+  getTrainingHistory: async (): Promise<TrainingHistory> => {
+    return fetchApi<TrainingHistory>('/metrics/training-history');
+  },
+
+  /**
+   * Get model metadata (architecture, version, training info)
+   */
+  getModelMetadata: async (): Promise<ModelMetadata> => {
+    return fetchApi<ModelMetadata>('/metrics/model-metadata');
+  },
+
+  /**
+   * Get dataset statistics (delay rates, flight counts)
+   */
+  getDatasetStats: async (): Promise<DatasetStats> => {
+    return fetchApi<DatasetStats>('/metrics/dataset-stats');
+  },
+
+  /**
+   * Get feature information (45 features used by model)
+   */
+  getFeatureInfo: async (): Promise<FeatureInfo> => {
+    return fetchApi<FeatureInfo>('/metrics/feature-info');
+  },
+
+  /**
+   * Check metrics service health
+   */
+  health: async () => {
+    return fetchApi('/metrics/health');
+  },
+};
+
+// ============================================================================
+// COMBINED API EXPORTS
+// ============================================================================
+
+export const api = {
+  prediction: predictionApi,
+  metrics: metricsApi,
+};
+
+export default api;

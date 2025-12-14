@@ -256,8 +256,8 @@ export function PredictionPage() {
                   >
                     <option value="">Select origin airport...</option>
                     {airports.map((airport) => (
-                      <option key={airport} value={airport}>
-                        {airport}
+                      <option key={airport.code} value={airport.code}>
+                        {airport.code} - {airport.name}
                       </option>
                     ))}
                   </select>
@@ -284,8 +284,8 @@ export function PredictionPage() {
                   >
                     <option value="">Select destination airport...</option>
                     {airports.map((airport) => (
-                      <option key={airport} value={airport}>
-                        {airport}
+                      <option key={airport.code} value={airport.code}>
+                        {airport.code} - {airport.name}
                       </option>
                     ))}
                   </select>
@@ -310,10 +310,10 @@ export function PredictionPage() {
                     disabled={loading}
                     required
                   >
-                    <option value="">Select carrier...</option>
+                    <option value="">Select airline carrier...</option>
                     {carriers.map((carrier) => (
-                      <option key={carrier} value={carrier}>
-                        {carrier}
+                      <option key={carrier.code} value={carrier.code}>
+                        {carrier.code} - {carrier.name}
                       </option>
                     ))}
                   </select>
@@ -361,7 +361,7 @@ export function PredictionPage() {
                 <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
                 <div>
                   <h3 className="text-red-900 text-lg mb-2">Prediction Failed</h3>
-                  <p className="text-red-700">{error}</p>
+                  <p className="text-red-700">{error.message}</p>
                 </div>
               </div>
             </div>
@@ -404,13 +404,13 @@ export function PredictionPage() {
                     <div className="flex justify-between mb-2">
                       <span className="text-sm text-slate-700">Delay Probability</span>
                       <span className="text-sm text-slate-900">
-                        {(result.delayProbability * 100).toFixed(1)}%
+                        {(result.probability * 100).toFixed(1)}%
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-1000"
-                        style={{ width: `${result.delayProbability * 100}%` }}
+                        style={{ width: `${result.probability * 100}%` }}
                       />
                     </div>
                   </div>
@@ -419,35 +419,17 @@ export function PredictionPage() {
                     <div className="flex justify-between mb-2">
                       <span className="text-sm text-slate-700">On-Time Probability</span>
                       <span className="text-sm text-slate-900">
-                        {(result.onTimeProbability * 100).toFixed(1)}%
+                        {(1 - result.probability * 100).toFixed(1)}%
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all duration-1000"
-                        style={{ width: `${result.onTimeProbability * 100}%` }}
+                        style={{ width: `${1 - result.probability * 100}%` }}
                       />
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Processing Time */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg p-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-700">Processing Time</span>
-                  <span className="text-slate-900 text-lg">
-                    {result.processingTimeMs}ms
-                  </span>
-                </div>
-                {result.modelVersion && (
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200">
-                    <span className="text-slate-700">Model Version</span>
-                    <span className="text-slate-900 text-sm font-mono">
-                      {result.modelVersion}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           )}

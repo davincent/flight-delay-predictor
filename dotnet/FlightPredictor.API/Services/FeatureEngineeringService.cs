@@ -179,6 +179,12 @@ namespace FlightPredictor.API.Services
             // Apply StandardScaler (CRITICAL: must match Python exactly)
             var scaledFeatures = ApplyScaler(orderedFeatures);
 
+            _logger.LogInformation("=== FEATURE DEBUG ===");
+            for (int i = 0; i < scaledFeatures.Length; i++)
+            {
+                _logger.LogInformation("Feature {Index}: {Value:F4}", i, scaledFeatures[i]);
+            }
+
             return scaledFeatures;
         }
 

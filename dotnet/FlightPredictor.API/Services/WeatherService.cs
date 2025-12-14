@@ -63,7 +63,7 @@ namespace FlightPredictor.API.Services
             {
                 Temperature = 65.0,      // Mild temperature
                 Dewpoint = 50.0,         // Moderate humidity
-                Pressure = 29.92,        // Standard sea level pressure (inHg)
+                Pressure = 1013.25,      // 1013 millibars
                 WindDirection = 180.0,   // South wind (arbitrary but reasonable)
                 WindSpeed = 8.0,         // Light breeze
                 SkyCoverage = 3.0,       // Partly cloudy (0=clear, 8=overcast)
@@ -119,7 +119,7 @@ namespace FlightPredictor.API.Services
             {
                 Temperature = baseTemp,
                 Dewpoint = dewpoint,
-                Pressure = 29.92,           // Sea level standard
+                Pressure = 1013.25,           // Sea level standard
                 WindDirection = 180.0,       // South wind (common in US)
                 WindSpeed = windSpeed,
                 SkyCoverage = skyCoverage,
