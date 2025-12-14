@@ -24,18 +24,23 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Add CORS to allow Blazor frontend to call this API
+
+var app = builder.Build();
+
+// Add CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowBlazor", policy =>
+    options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5000", "https://localhost:5001")
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
-var app = builder.Build();
+// ...
+
+app.UseCors("AllowReactApp");
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
