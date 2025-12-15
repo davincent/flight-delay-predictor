@@ -186,6 +186,36 @@ export function useFeatureInfo(): UseApiState<FeatureInfo> {
   return { data, loading, error, refetch: fetchData };
 }
 
+/**
+ * Hook for fetching test results
+ * Automatically fetches on mount
+ */
+export function useTestResults(): UseApiState<any> {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await api.metrics.getTestResults();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch test results'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  return { data, loading, error, refetch: fetchData };
+}
+
 // ============================================================================
 // COMBINED HOOKS FOR PAGES THAT NEED MULTIPLE DATA SOURCES
 // ============================================================================
@@ -208,6 +238,7 @@ export function useTrainingData() {
     },
   };
 }
+
 
 // ============================================================================
 // REFERENCE DATA HOOK (Hardcoded for now)

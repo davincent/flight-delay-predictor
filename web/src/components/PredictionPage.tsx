@@ -419,13 +419,13 @@ export function PredictionPage() {
                     <div className="flex justify-between mb-2">
                       <span className="text-sm text-slate-700">On-Time Probability</span>
                       <span className="text-sm text-slate-900">
-                        {(1 - result.probability * 100).toFixed(1)}%
+                        {((1 - result.probability) * 100).toFixed(1)}%
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all duration-1000"
-                        style={{ width: `${1 - result.probability * 100}%` }}
+                        style={{ width: `${(1 - result.probability) * 100}%` }}
                       />
                     </div>
                   </div>

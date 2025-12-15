@@ -156,6 +156,13 @@ export const metricsApi = {
   },
 
   /**
+   * Get test results (final model performance on unseen data)
+   */
+  getTestResults: async (): Promise<any> => {
+    return fetchApi<any>('/metrics/test-results');
+  },
+
+  /**
    * Check metrics service health
    */
   health: async () => {

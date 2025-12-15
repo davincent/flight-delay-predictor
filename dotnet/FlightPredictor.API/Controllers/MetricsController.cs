@@ -11,11 +11,13 @@ namespace FlightPredictor.API.Controllers
     public class MetricsController : ControllerBase
     {
         private readonly ILogger<MetricsController> _logger;
+        private readonly IWebHostEnvironment _environment;
         private readonly string _dataPath;
 
         public MetricsController(ILogger<MetricsController> logger, IWebHostEnvironment env)
         {
             _logger = logger;
+            _environment = env;
             // Path to Data folder in the application directory
             _dataPath = Path.Combine(env.ContentRootPath, "Data");
         }
@@ -157,6 +159,32 @@ namespace FlightPredictor.API.Controllers
             {
                 _logger.LogError(ex, "Error reading feature information");
                 return StatusCode(500, new { error = "Failed to retrieve feature information" });
+            }
+        }
+        /// <summary>
+        /// Get Test Results .json
+        /// </summary>
+        [HttpGet("test-results")]
+        public IActionResult GetTestResults()
+        {
+            try
+            {
+                var filePath = Path.Combine(_dataPath, "test_results.json");
+        
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound(new { error = "Test results file not found" });
+                }
+
+                var jsonContent = System.IO.File.ReadAllText(filePath);
+                var data = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+        
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading test results");
+                return StatusCode(500, new { error = "Failed to load test results" });
             }
         }
 

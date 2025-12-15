@@ -13,9 +13,9 @@ export default function App() {
 
   const tabs = [
     { id: 'prediction' as TabType, label: 'Prediction', icon: Brain },
-    { id: 'data' as TabType, label: 'Training Data', icon: Database },
-    { id: 'architecture' as TabType, label: 'Model Architecture', icon: Network },
     { id: 'metrics' as TabType, label: 'Training Metrics', icon: TrendingUp },
+    { id: 'architecture' as TabType, label: 'Model Architecture', icon: Network },
+    ///{ id: 'data' as TabType, label: 'Training Data', icon: Database },
   ];
 
   return (
@@ -95,9 +95,9 @@ export default function App() {
         <main className="flex-1 min-h-screen">
           <div className="container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
             {activeTab === 'prediction' && <PredictionPage />}
-            {activeTab === 'data' && <TrainingDataPage />}
-            {activeTab === 'architecture' && <ModelArchitecturePage />}
             {activeTab === 'metrics' && <TrainingMetricsPage />}
+            {activeTab === 'architecture' && <ModelArchitecturePage />}
+            {activeTab === 'data' && <TrainingDataPage />}
           </div>
         </main>
       </div>

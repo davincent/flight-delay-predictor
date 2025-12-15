@@ -194,9 +194,6 @@ namespace FlightPredictor.API.Services
                 // Step 7: Transform into 45 engineered and scaled features
                 var features = _featureEngineeringService.TransformFeatures(rawData);
 
-                _logger.LogInformation("First 10 features: [{Features}]", string.Join(", ", features.Take(10).Select(f => f.ToString("F4"))));
-                _logger.LogInformation("Last 10 features: [{Features}]", string.Join(", ", features.Skip(35).Select(f => f.ToString("F4"))));
-
 
                 _logger.LogDebug("Features transformed: {Count} features ready for model", features.Length);
 
