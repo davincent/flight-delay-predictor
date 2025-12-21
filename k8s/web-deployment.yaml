@@ -67,7 +67,7 @@ metadata:
     app: flight-predictor
     component: web
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
     app: flight-predictor
     component: web
