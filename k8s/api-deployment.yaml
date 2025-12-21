@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flight-predictor-api
+  namespace: flight-predictor
+  labels:
+    app: flight-predictor
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flight-predictor
+      component: api
+  template:
+    metadata:
+      labels:
+        app: flight-predictor
+        component: api
+    spec:
+      containers:
+      - name: api
+        image: dgvincent/flight-predictor-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/Prediction/health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/Prediction/health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flight-predictor-api
+  namespace: flight-predictor
+  labels:
+    app: flight-predictor
+    component: api
+spec:
+  type: ClusterIP
+  selector:
+    app: flight-predictor
+    component: api
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http

@@ -10,7 +10,7 @@ services:
     ports:
       - "5214:80"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
     networks:
       - flight-network
@@ -21,6 +21,27 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # The Web frontend service
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: flight-predictor-web
+    ports:
+      - "80:80"
+    networks:
+      - flight-network
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 # Define network for service communication
 networks:

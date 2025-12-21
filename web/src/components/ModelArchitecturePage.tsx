@@ -10,7 +10,6 @@ interface LayerSpec {
   description: string;
 }
 
-
 export function ModelArchitecturePage() {
   const { data: metadata, loading: metadataLoading, error: metadataError } = useModelMetadata();
   const { data: featureInfo, loading: featureLoading, error: featureError } = useFeatureInfo();
