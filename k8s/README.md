@@ -269,32 +269,6 @@ Both deployments include health probes:
 
 API health endpoint: `http://flight-predictor-api/api/Prediction/health`
 
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│         Kubernetes Cluster              │
-│                                         │
-│  ┌──────────────────────────────────┐  │
-│  │  Namespace: flight-predictor     │  │
-│  │                                  │  │
-│  │  ┌────────────┐  ┌────────────┐ │  │
-│  │  │ Web Pods   │  │ API Pods   │ │  │
-│  │  │ (nginx +   │  │ (.NET      │ │  │
-│  │  │  React)    │  │  Core)     │ │  │
-│  │  └─────┬──────┘  └──────┬─────┘ │  │
-│  │        │                 │       │  │
-│  │  ┌─────▼──────┐  ┌──────▼─────┐ │  │
-│  │  │ Web Svc    │  │ API Svc    │ │  │
-│  │  │ (NodePort) │  │ (ClusterIP)│ │  │
-│  │  └─────┬──────┘  └────────────┘ │  │
-│  └────────┼─────────────────────────┘  │
-│           │                            │
-└───────────┼────────────────────────────┘
-            │
-    http://localhost:<NodePort>
-```
-
 ## Support
 
 For issues or questions:
