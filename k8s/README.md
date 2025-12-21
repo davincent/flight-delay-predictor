@@ -1,167 +1,214 @@
-# Kubernetes Deployment Guide
+# Flight Delay Predictor - Kubernetes Deployment
 
-This directory contains Kubernetes manifests for deploying the Flight Delay Predictor application to your home lab Kubernetes cluster.
-
-## Architecture
-
-The deployment consists of:
-- **API Service**: .NET backend (2 replicas) - Internal ClusterIP service
-- **Web Service**: React frontend with nginx (2 replicas) - LoadBalancer service
-- **Ingress**: Optional ingress controller configuration for domain-based routing
+Deploy the Flight Delay Predictor application on your Kubernetes cluster. Pre-built multi-architecture images are available on Docker Hub.
 
 ## Prerequisites
 
-1. **Kubernetes cluster** running in your home lab
-2. **kubectl** configured to access your cluster
-3. **Docker images** built and available to your cluster
+- Kubernetes cluster (k8s, k3s, or Docker Desktop with Kubernetes enabled)
+- `kubectl` installed and configured
+- Git (to clone this repository)
 
-## Image Distribution Options
-
-You have several options to make your Docker images available to your Kubernetes cluster:
-
-### Option 1: Use a Local Registry (Recommended for home lab)
+## Quick Start
 
 ```bash
-# Start a local registry (if you don't have one)
-docker run -d -p 5000:5000 --restart=always --name registry registry:2
+# Clone the repository
+git clone https://github.com/davincent/flight-delay-predictor.git
+cd flight-delay-predictor
 
-# Tag and push your images
-docker tag flight-delay-predictor-api:latest localhost:5000/flight-delay-predictor-api:latest
-docker tag flight-delay-predictor-web:latest localhost:5000/flight-delay-predictor-web:latest
+# Deploy to Kubernetes
+kubectl apply -f k8s/
 
-docker push localhost:5000/flight-delay-predictor-api:latest
-docker push localhost:5000/flight-delay-predictor-web:latest
+# Check deployment status
+kubectl get pods -n flight-predictor
 
-# Update the image references in the deployment files:
-# - k8s/api-deployment.yaml: change image to localhost:5000/flight-delay-predictor-api:latest
-# - k8s/web-deployment.yaml: change image to localhost:5000/flight-delay-predictor-web:latest
+# Get the web service port
+kubectl get svc flight-predictor-web -n flight-predictor
 ```
 
-### Option 2: Load Images Directly (for single-node clusters like k3s, microk8s)
+Access the application at `http://localhost:<PORT>` where `<PORT>` is shown in the output.
 
+---
+
+## Deployment Instructions by Platform
+
+### Kubernetes (General)
+
+**1. Clone the Repository**
 ```bash
-# For k3s
-docker save flight-delay-predictor-api:latest | sudo k3s ctr images import -
-docker save flight-delay-predictor-web:latest | sudo k3s ctr images import -
-
-# For microk8s
-docker save flight-delay-predictor-api:latest > api.tar
-docker save flight-delay-predictor-web:latest > web.tar
-microk8s ctr image import api.tar
-microk8s ctr image import web.tar
+git clone https://github.com/davincent/flight-delay-predictor.git
+cd flight-delay-predictor
 ```
 
-### Option 3: Use Docker Hub or Private Registry
-
-```bash
-# Tag with your registry
-docker tag flight-delay-predictor-api:latest yourusername/flight-delay-predictor-api:latest
-docker tag flight-delay-predictor-web:latest yourusername/flight-delay-predictor-web:latest
-
-# Push to registry
-docker push yourusername/flight-delay-predictor-api:latest
-docker push yourusername/flight-delay-predictor-web:latest
-
-# Update image references in deployment files accordingly
-```
-
-## Deployment Steps
-
-### 1. Build Docker Images (if not already built)
-
-```bash
-# Build from project root
-docker-compose build
-```
-
-### 2. Make Images Available to Cluster
-
-Choose one of the options above and make your images accessible to your cluster.
-
-### 3. Deploy to Kubernetes
-
-```bash
-# Apply all manifests in order
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/nginx-configmap.yaml
-kubectl apply -f k8s/api-deployment.yaml
-kubectl apply -f k8s/web-deployment.yaml
-
-# Optional: Apply ingress if you have an ingress controller
-kubectl apply -f k8s/ingress.yaml
-```
-
-Or apply all at once:
-
+**2. Deploy the Application**
 ```bash
 kubectl apply -f k8s/
 ```
 
-### 4. Verify Deployment
+This creates:
+- Namespace: `flight-predictor`
+- API Deployment (2 replicas)
+- Web Deployment (2 replicas)
+- Services for both components
+- Nginx configuration
 
+**3. Verify Deployment**
 ```bash
-# Check namespace
-kubectl get namespace flight-predictor
-
-# Check all resources in the namespace
+# Check all resources
 kubectl get all -n flight-predictor
 
-# Check pod status
+# Wait for pods to be ready
+kubectl wait --for=condition=ready pod -l app=flight-predictor -n flight-predictor --timeout=300s
+```
+
+**4. Access the Application**
+
+Get the NodePort assigned to the web service:
+```bash
+kubectl get svc flight-predictor-web -n flight-predictor
+```
+
+Look for the port mapping in the output (e.g., `80:31400/TCP`). The second number (31400 in this example) is your NodePort.
+
+Access the application:
+- **On the cluster node**: `http://localhost:<NodePort>`
+- **From another machine**: `http://<node-ip>:<NodePort>`
+
+Replace `<NodePort>` with the actual port number from the previous command.
+
+---
+
+### k3s (Raspberry Pi / Lightweight Kubernetes)
+
+**1. Clone the Repository**
+```bash
+git clone https://github.com/davincent/flight-delay-predictor.git
+cd flight-delay-predictor
+```
+
+**2. Deploy the Application**
+```bash
+kubectl apply -f k8s/
+```
+
+**3. Verify Image Pull**
+
+k3s will automatically pull the ARM64 images from Docker Hub. Verify the pods are running:
+```bash
+kubectl get pods -n flight-predictor -w
+```
+
+Wait for all pods to show `Running` status.
+
+**4. Access the Application**
+
+Get the NodePort:
+```bash
+kubectl get svc flight-predictor-web -n flight-predictor
+```
+
+The output shows the port mapping (e.g., `80:31400/TCP`). Use the second port number.
+
+Access the application:
+```bash
+# From the k3s node
+http://localhost:<NodePort>
+
+# From your network
+http://<raspberry-pi-ip>:<NodePort>
+```
+
+**k3s-Specific Notes:**
+- Images are pulled directly from `dgvincent/flight-predictor-api:latest` and `dgvincent/flight-predictor-web:latest`
+- The multi-architecture images automatically use the ARM64 variant on Raspberry Pi
+- No additional configuration needed for image architecture
+
+---
+
+### Docker Desktop (Windows/Mac)
+
+**1. Enable Kubernetes**
+
+In Docker Desktop:
+- Go to Settings → Kubernetes
+- Check "Enable Kubernetes"
+- Click "Apply & Restart"
+- Wait for Kubernetes to start (green indicator)
+
+**2. Clone the Repository**
+```bash
+git clone https://github.com/davincent/flight-delay-predictor.git
+cd flight-delay-predictor
+```
+
+**3. Deploy the Application**
+```bash
+kubectl apply -f k8s/
+```
+
+**4. Verify Deployment**
+```bash
 kubectl get pods -n flight-predictor
-
-# View pod logs
-kubectl logs -n flight-predictor -l component=api
-kubectl logs -n flight-predictor -l component=web
-
-# Check services
-kubectl get svc -n flight-predictor
 ```
 
-## Accessing the Application
+Wait for all pods to show `Running` status.
 
-### Via LoadBalancer (if supported)
+**5. Access the Application**
 
+Get the NodePort:
 ```bash
-# Get the external IP
 kubectl get svc flight-predictor-web -n flight-predictor
-
-# Access via browser at the EXTERNAL-IP
 ```
 
-### Via NodePort (alternative)
+Look for the port in the output (e.g., `80:31400/TCP`).
 
-If LoadBalancer isn't available, modify the web service to use NodePort:
+Access the application in your browser:
+```
+http://localhost:<NodePort>
+```
 
+**Docker Desktop Notes:**
+- Uses the AMD64 architecture images automatically
+- All services are accessible via `localhost`
+- No need to find node IP addresses
+
+---
+
+## Available Services
+
+Once deployed, the following services are available:
+
+| Service | Type | Internal Port | Description |
+|---------|------|---------------|-------------|
+| flight-predictor-api | ClusterIP | 80 | Backend API (internal only) |
+| flight-predictor-web | NodePort | 80 → 30000-32767 | Frontend web application |
+
+## Monitoring and Logs
+
+**View Pod Status**
 ```bash
-# Edit web-deployment.yaml, change service type from LoadBalancer to NodePort
-kubectl apply -f k8s/web-deployment.yaml
-
-# Get the node port
-kubectl get svc flight-predictor-web -n flight-predictor
-
-# Access via http://<node-ip>:<node-port>
+kubectl get pods -n flight-predictor
 ```
 
-### Via Ingress
-
-If using ingress:
-
+**View Application Logs**
 ```bash
-# Edit k8s/ingress.yaml and set your domain
-# Update ingressClassName to match your ingress controller
+# API logs
+kubectl logs -l component=api -n flight-predictor
 
-# Apply the ingress
-kubectl apply -f k8s/ingress.yaml
+# Web logs
+kubectl logs -l component=web -n flight-predictor
 
-# Get ingress details
-kubectl get ingress -n flight-predictor
-
-# Add DNS entry or /etc/hosts entry pointing to your ingress controller IP
+# Follow logs in real-time
+kubectl logs -f <pod-name> -n flight-predictor
 ```
 
-## Configuration
+**Check Service Endpoints**
+```bash
+kubectl get endpoints -n flight-predictor
+```
 
-### Scaling
+## Scaling
+
+Adjust the number of replicas as needed:
 
 ```bash
 # Scale API
@@ -171,142 +218,89 @@ kubectl scale deployment flight-predictor-api -n flight-predictor --replicas=3
 kubectl scale deployment flight-predictor-web -n flight-predictor --replicas=3
 ```
 
-### Resource Limits
+## Updating
 
-Current resource settings:
-- **API**: 256Mi-512Mi memory, 250m-500m CPU
-- **Web**: 64Mi-128Mi memory, 100m-200m CPU
-
-Adjust in the respective deployment YAML files based on your cluster capacity.
-
-### Health Checks
-
-Both deployments include:
-- **Liveness probes**: Restart pods if unhealthy
-- **Readiness probes**: Remove from service if not ready
-
-## Updating the Application
-
-### Rolling Update
+When a new version is released:
 
 ```bash
-# Build new images with a version tag
-docker build -t flight-delay-predictor-api:v2 ./dotnet/FlightPredictor.API
-docker build -t flight-delay-predictor-web:v2 ./web
+# Pull latest manifests
+git pull origin main
 
-# Push to your registry
-# ... (push commands based on your chosen option)
+# Apply updates
+kubectl apply -f k8s/
 
-# Update deployment
-kubectl set image deployment/flight-predictor-api api=flight-delay-predictor-api:v2 -n flight-predictor
-kubectl set image deployment/flight-predictor-web web=flight-delay-predictor-web:v2 -n flight-predictor
-
-# Check rollout status
+# Watch rollout
 kubectl rollout status deployment/flight-predictor-api -n flight-predictor
 kubectl rollout status deployment/flight-predictor-web -n flight-predictor
 ```
 
-### Rollback
+Kubernetes will perform a rolling update with zero downtime.
 
-```bash
-# Rollback to previous version
-kubectl rollout undo deployment/flight-predictor-api -n flight-predictor
-kubectl rollout undo deployment/flight-predictor-web -n flight-predictor
-```
+## Uninstall
 
-## Troubleshooting
-
-### Pods Not Starting
-
-```bash
-# Describe pod to see events
-kubectl describe pod <pod-name> -n flight-predictor
-
-# Check logs
-kubectl logs <pod-name> -n flight-predictor
-
-# Common issues:
-# - Image pull errors: Verify image is accessible
-# - Resource constraints: Check node resources
-# - ConfigMap not found: Ensure ConfigMap is created first
-```
-
-### Service Not Accessible
-
-```bash
-# Verify service endpoints
-kubectl get endpoints -n flight-predictor
-
-# Test from within cluster
-kubectl run -it --rm debug --image=busybox --restart=Never -n flight-predictor -- sh
-# Inside the pod:
-wget -O- http://flight-predictor-api/api/Prediction/health
-```
-
-### Image Pull Errors
-
-```bash
-# If using local registry, ensure all nodes can access it
-# You may need to configure insecure registries in your container runtime
-
-# For k3s, add to /etc/rancher/k3s/registries.yaml:
-# mirrors:
-#   "localhost:5000":
-#     endpoint:
-#       - "http://localhost:5000"
-```
-
-## Cleanup
+Remove all resources:
 
 ```bash
 # Delete all resources
 kubectl delete -f k8s/
 
-# Or delete namespace (removes everything)
+# Or delete the namespace (removes everything)
 kubectl delete namespace flight-predictor
 ```
 
-## Production Considerations
+## Resource Requirements
 
-For production deployments, consider:
+**Minimum Resources:**
+- 2 CPU cores
+- 2GB RAM
+- 5GB disk space
 
-1. **Persistent Storage**: Add PersistentVolumes if you need to store data
-2. **TLS/SSL**: Enable HTTPS via ingress with cert-manager
-3. **Secrets Management**: Use Kubernetes Secrets for sensitive configuration
-4. **Monitoring**: Add Prometheus/Grafana for metrics
-5. **Logging**: Configure centralized logging (ELK, Loki)
-6. **Backup**: Regular backups of configurations and data
-7. **Network Policies**: Restrict pod-to-pod communication
-8. **Resource Quotas**: Set namespace resource quotas
-9. **Pod Disruption Budgets**: Ensure availability during updates
-10. **HorizontalPodAutoscaler**: Auto-scale based on metrics
+**Per-Pod Allocations:**
+- API pods: 256Mi-512Mi memory, 250m-500m CPU
+- Web pods: 64Mi-128Mi memory, 100m-200m CPU
 
-## Example: Complete Deployment Script
+For clusters with limited resources, reduce replica counts in the deployment files before applying.
 
-```bash
-#!/bin/bash
+## Health Checks
 
-# Build images
-docker-compose build
+Both deployments include health probes:
+- **Liveness Probe**: Restarts unhealthy pods automatically
+- **Readiness Probe**: Removes pods from load balancing when not ready
 
-# Tag for local registry
-docker tag flight-delay-predictor-api:latest localhost:5000/flight-delay-predictor-api:latest
-docker tag flight-delay-predictor-web:latest localhost:5000/flight-delay-predictor-web:latest
+API health endpoint: `http://flight-predictor-api/api/Prediction/health`
 
-# Push to local registry
-docker push localhost:5000/flight-delay-predictor-api:latest
-docker push localhost:5000/flight-delay-predictor-web:latest
+## Architecture
 
-# Deploy to Kubernetes
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/nginx-configmap.yaml
-kubectl apply -f k8s/api-deployment.yaml
-kubectl apply -f k8s/web-deployment.yaml
-
-# Wait for deployment
-kubectl wait --for=condition=available --timeout=300s deployment/flight-predictor-api -n flight-predictor
-kubectl wait --for=condition=available --timeout=300s deployment/flight-predictor-web -n flight-predictor
-
-echo "Deployment complete!"
-kubectl get all -n flight-predictor
 ```
+┌─────────────────────────────────────────┐
+│         Kubernetes Cluster              │
+│                                         │
+│  ┌──────────────────────────────────┐  │
+│  │  Namespace: flight-predictor     │  │
+│  │                                  │  │
+│  │  ┌────────────┐  ┌────────────┐ │  │
+│  │  │ Web Pods   │  │ API Pods   │ │  │
+│  │  │ (nginx +   │  │ (.NET      │ │  │
+│  │  │  React)    │  │  Core)     │ │  │
+│  │  └─────┬──────┘  └──────┬─────┘ │  │
+│  │        │                 │       │  │
+│  │  ┌─────▼──────┐  ┌──────▼─────┐ │  │
+│  │  │ Web Svc    │  │ API Svc    │ │  │
+│  │  │ (NodePort) │  │ (ClusterIP)│ │  │
+│  │  └─────┬──────┘  └────────────┘ │  │
+│  └────────┼─────────────────────────┘  │
+│           │                            │
+└───────────┼────────────────────────────┘
+            │
+    http://localhost:<NodePort>
+```
+
+## Support
+
+For issues or questions:
+- GitHub Issues: https://github.com/davincent/flight-delay-predictor/issues
+- Check logs: `kubectl logs -n flight-predictor -l app=flight-predictor`
+
+## License
+
+[Your License Here]
